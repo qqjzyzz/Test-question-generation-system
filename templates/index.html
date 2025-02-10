@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI题目生成系统</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .form-group { margin-bottom: 1rem; }
+        #progressBar { display: none; }
+        #result { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">AI题目生成系统</h1>
+        
+        <form id="generationForm">
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="count">生成数量 (1-500)</label>
+                        <input type="number" class="form-control" id="count" name="count" min="1" max="500" value="10">
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="temperature">Temperature (0.0-2.0)</label>
+                        <input type="number" class="form-control" id="temperature" name="temperature" min="0" max="2" step="0.1" value="0.7">
+                        <small class="form-text text-muted">控制输出的随机性，值越大生成的题目越有创意，值越小生成的题目越稳定</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="top_p">Top P (0.0-1.0)</label>
+                        <input type="number" class="form-control" id="top_p" name="top_p" min="0" max="1" step="0.1" value="0.9">
+                        <small class="form-text text-muted">控制输出的多样性，值越大生成的题目类型越丰富，值越小则更保守</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="presence_penalty">Presence Penalty (-2.0-2.0)</label>
+                        <input type="number" class="form-control" id="presence_penalty" name="presence_penalty" min="-2" max="2" step="0.1" value="0">
+                        <small class="form-text text-muted">控制题目主题的重复度，正值会避免重复使用相同主题，负值则允许重复</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="frequency_penalty">Frequency Penalty (-2.0-2.0)</label>
+                        <input type="number" class="form-control" id="frequency_penalty" name="frequency_penalty" min="-2" max="2" step="0.1" value="0">
+                        <small class="form-text text-muted">控制用词的重复度，正值会避免重复使用相同词汇，负值则允许重复</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="form-group">
+                        <label for="concurrent_tasks">并发任务数 (1-20)</label>
+                        <input type="number" class="form-control" id="concurrent_tasks" name="concurrent_tasks" min="1" max="20" value="10">
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="system_prompt">系统提示词</label>
+                <textarea class="form-control" id="system_prompt" name="system_prompt" rows="6" required>你是一个专业的题目生成器，请按照以下要求生成题目：
+
+1. 题目内容要求：
+   - 题目描述要清晰、准确、无歧义
+   - 选项设置要合理，具有区分度
+   - 确保有且仅有一个正确答案
+
+2. 答案与解析要求：
+   - 正确答案必须明确标注
+   - 解析要详细说明解题思路和方法
+   - 解析语言要通俗易懂，适合学习和理解
+   - 必要时可以提供多种解题方法
+
+3. 格式要求：
+   - 严格按照指定的JSON格式返回
+   - 所有字段必须完整填写
+   - 内容不要包含任何特殊格式标记</textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="user_prompt">用户提示词</label>
+                <textarea class="form-control" id="user_prompt" name="user_prompt" rows="6" required></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="json_format">JSON输出格式</label>
+                <div class="json-fields">
+                    <div class="mb-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="addField">添加字段</button>
+                    </div>
+                    <div id="jsonFieldsContainer">
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="question">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="题目">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="A">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="选项A">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="B">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="选项B">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="C">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="选项C">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="D">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="选项D">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="analysis">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="解析">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="correct_answer">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="正确答案">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                        <div class="row mb-2">
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="字段名" value="question_type">
+                            </div>
+                            <div class="col">
+                                <input type="text" class="form-control" placeholder="描述" value="题型">
+                            </div>
+                            <div class="col-auto">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">开始生成</button>
+        </form>
+
+        <div id="progressBar" class="mt-4">
+            <h4>生成进度</h4>
+            <div class="progress">
+                <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+            </div>
+            <p class="mt-2" id="progressText">0/0 (0%)</p>
+        </div>
+
+        <div id="result" class="mt-4">
+            <h4>生成结果</h4>
+            <a id="downloadLink" href="#" class="btn btn-success">下载Excel文件</a>
+        </div>
+    </div>
+
+    <script>
+        let currentTaskId = null;
+        const progressCheckInterval = 1000; // 1秒检查一次进度
+        let progressChecker = null;
+
+        document.getElementById('generationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = {
+                count: parseInt(document.getElementById('count').value),
+                temperature: parseFloat(document.getElementById('temperature').value),
+                top_p: parseFloat(document.getElementById('top_p').value),
+                presence_penalty: parseFloat(document.getElementById('presence_penalty').value),
+                frequency_penalty: parseFloat(document.getElementById('frequency_penalty').value),
+                concurrent_tasks: parseInt(document.getElementById('concurrent_tasks').value),
+                progress_interval: 1000,
+                task_expire: 3600,
+                max_tokens: 2000,
+                system_prompt: document.getElementById('system_prompt').value,
+                user_prompt: document.getElementById('user_prompt').value,
+                json_fields: getJsonFields()
+            };
+
+            try {
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+                currentTaskId = data.task_id;
+                
+                document.getElementById('progressBar').style.display = 'block';
+                document.getElementById('result').style.display = 'none';
+                
+                // 开始检查进度
+                if (progressChecker) clearInterval(progressChecker);
+                progressChecker = setInterval(checkProgress, formData.progress_interval);
+                
+            } catch (error) {
+                alert('提交失败：' + error.message);
+            }
+        });
+
+        async function checkProgress() {
+            if (!currentTaskId) return;
+
+            try {
+                const response = await fetch(`/task/${currentTaskId}`);
+                const data = await response.json();
+
+                const progressBar = document.querySelector('.progress-bar');
+                const progressText = document.getElementById('progressText');
+                
+                if (data.progress) {
+                    const { current, total, percentage } = data.progress;
+                    progressBar.style.width = `${percentage}%`;
+                    progressText.textContent = `${current}/${total} (${percentage}%)`;
+                }
+
+                if (data.status === 'completed') {
+                    clearInterval(progressChecker);
+                    document.getElementById('result').style.display = 'block';
+                    document.getElementById('downloadLink').href = `/download/${currentTaskId}`;
+                } else if (data.status === 'error') {
+                    clearInterval(progressChecker);
+                    alert('生成失败：' + data.error);
+                }
+
+            } catch (error) {
+                console.error('检查进度失败：', error);
+            }
+        }
+
+        // JSON字段管理
+        document.getElementById('addField').addEventListener('click', () => {
+            const container = document.getElementById('jsonFieldsContainer');
+            const newRow = document.createElement('div');
+            newRow.className = 'row mb-2';
+            newRow.innerHTML = `
+                <div class="col">
+                    <input type="text" class="form-control" placeholder="字段名" required>
+                </div>
+                <div class="col">
+                    <input type="text" class="form-control" placeholder="描述" required>
+                </div>
+                <div class="col-auto">
+                    <button type="button" class="btn btn-sm btn-danger" onclick="this.parentElement.parentElement.remove()">删除</button>
+                </div>
+            `;
+            container.appendChild(newRow);
+        });
+
+        function getJsonFields() {
+            const fields = [];
+            document.querySelectorAll('#jsonFieldsContainer .row').forEach(row => {
+                const inputs = row.querySelectorAll('input');
+                if (inputs[0].value && inputs[1].value) {
+                    fields.push({
+                        name: inputs[0].value,
+                        description: inputs[1].value
+                    });
+                }
+            });
+            return fields;
+        }
+    </script>
+</body>
+</html> 
